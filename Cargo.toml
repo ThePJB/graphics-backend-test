@@ -1,5 +1,5 @@
 [package]
-name = "graphics-backend-test2"
+name = "graphics-backend-test"
 version = "0.1.0"
 edition = "2021"
 
