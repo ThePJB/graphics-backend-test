@@ -698,6 +698,8 @@ dependencies = [
  "glutin 0.28.0",
  "glutin-winit",
  "raw-window-handle 0.6.0",
+ "wasm-bindgen",
+ "web-sys",
  "winit 0.29.15",
 ]
 

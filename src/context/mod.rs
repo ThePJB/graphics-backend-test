@@ -1,9 +1,18 @@
 mod input;
 mod program;
 mod vertex;
-mod run;
+mod game_trait;
+
+#[cfg(not(target_arch = "wasm32"))]
+mod run_winit;
+#[cfg(target_arch = "wasm32")]
+mod run_wasm;
 
 pub use input::*;
-pub use run::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use run_winit::*;
+#[cfg(target_arch = "wasm32")]
+pub use run_wasm::*;
 pub use vertex::*;
 pub use program::*;
+pub use game_trait::*;

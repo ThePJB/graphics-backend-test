@@ -9,6 +9,7 @@ use super::program::Program;
 use super::vertex::*;
 use glow::HasContext;
 
+use super::*;
 
 // um if i eliminate context struct how do I handle resizes?
 // its like, what I have now sans of run shit is set to actually work
@@ -26,17 +27,15 @@ use glow::HasContext;
 
 // in b4 no longer a module and just inside game
 
-pub trait Game {
-    fn setup(&mut self, gl: &glow::Context);
-    fn frame(&mut self, input: Input, gl: &glow::Context);
-    // maybe even a resize trait or idk
-}
+
 
 // just 1 procedure should be amenable to cfg wasm
 // and collapses much of the structure down helpfully
 // this is basically run winit
 // can also make a run wasm that basically also calls setup, marshals input, and calls frame.
-pub fn run<T: Game + 'static>(mut game: T) {
+
+
+pub fn run_winit<T: Game + 'static>(mut game: T) {
     unsafe {
         let event_loop = glutin::event_loop::EventLoop::new();
         let window_builder = glutin::window::WindowBuilder::new()
