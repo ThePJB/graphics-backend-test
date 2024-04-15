@@ -148,6 +148,39 @@ pub mod vec_macros {
         };
     }
     #[macro_export]
+    // macro_rules! impl_dot_product {
+    //     ($type:ident, $scalar_type:ident, $( $field:ident ),*) => {
+    //         impl $type {
+    //             pub fn dot(&self, other: &$type) -> $scalar_type {
+    //                 $(
+    //                     self.$field * other.$field +
+    //                 )*
+    //                 0
+    //             }
+    //         }
+    //     };
+    // }
+
+    #[macro_export]
+    macro_rules! impl_dot_product_inner {
+        ($self:ident, $other:ident, $field:ident, $($fields:ident),*) => {
+            $self.$field * $other.$field + $crate::impl_dot_product_inner!($self, $other, $($fields),*)
+        };
+        ($self:ident, $other:ident, $field:ident) => {
+            $self.$field * $other.$field
+        };
+    }
+    #[macro_export]
+    macro_rules! impl_dot_product {
+        ($type:ident, $scalar_type:ident, $( $field:ident ),*) => {
+            impl $type {
+                pub fn dot(&self, other: &$type) -> $scalar_type {
+                    $crate::impl_dot_product_inner!(self, other, $( $field ),*)
+                }
+            }
+        };
+    }
+    #[macro_export]
     macro_rules! impl_vec {
         ($type:ident, $scalar_type:ident, $( $field:ident ),* ) => {
             $crate::impl_binary_ops!($type, Add, add, + $(, $field)*);
@@ -169,6 +202,7 @@ pub mod vec_macros {
             $crate::impl_vec_by_scalar_ops!($type, $scalar_type, Mul, mul, * $(, $field)*);
             $crate::impl_vec_by_scalar_ops!($type, $scalar_type, Div, div, / $(, $field)*);
             $crate::impl_lerp!($type, $scalar_type $(, $field)*);
+            $crate::impl_dot_product!($type, $scalar_type, $( $field ),*);
         };
     }
 }

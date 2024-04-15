@@ -8,15 +8,6 @@ use crate::context::*;
 // maybe can use wasm-pack or something
 // how to set target
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-#[wasm_bindgen(main)]
-fn main() {
-    let game = game::Game::default();
-    run(game);
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     let game = game::Game::default();
     run_winit(game);

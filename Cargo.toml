@@ -7,13 +7,8 @@ edition = "2021"
 
 [dependencies]
 glow = "0.13.1"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = "0.28.0"
 glutin-winit = "0.4.2"
 raw-window-handle = "0.6.0"
 winit = "0.29.11"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features=["HtmlCanvasElement", "WebGl2RenderingContext", "Window"] }
-wasm-bindgen = { version = "0.2" }
+png = "0.17.10"

@@ -5,11 +5,12 @@ use crate::util::*;
 pub struct Vertex {
     pub xyz: Vec3,
     pub rgba: Vec4,
+    pub uv: Vec2,
     // uv
     // other shit lmao like specular etc
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct VertexBufCPU {
     pub verts: Vec<Vertex>,
     pub inds: Vec<u32>,
@@ -23,15 +24,28 @@ impl VertexBufCPU {
     }
 }
 
+#[derive(Debug)]
 pub struct TriangleArgs {
     pub p: [Vec2; 3],
     pub z: f32,
     pub c: Vec4,
 }
 
+#[derive(Debug)]
+pub struct RectArgs {
+    pub xy: Vec2,
+    pub wh: Vec2,
+    pub z: f32,
+    pub c: Vec4,
+    pub uv_xy: Vec2,
+    pub uv_wh: Vec2,
+}
 
+
+#[derive(Debug)]
 pub enum RenderCommand {
     Triangle(TriangleArgs),
+    Rect(RectArgs),
 }
 
 // lol would separate top and bottom vertex colour allow for cheesy gradients? might be kinda silly cause of the perspective or might be kinda cool
@@ -46,9 +60,25 @@ impl RenderCommand {
                 buf.extend(args.p.iter().map(|p| Vertex {
                     xyz: vec3(p.x, p.y, args.z),
                     rgba: args.c,
+                    uv: vec2(0.0, 0.0),
                 }), 
                 0..3)
             },
+            Self::Rect(args) => {
+                let uvs = [vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)];
+                // let points = [args.xy, args.xy + args.wh.projx(), args.xy + args.wh, args.xy + args.wh.projy()];
+                let verts = uvs.iter().map(|uv| {
+                    let p = args.xy + *uv*args.wh;
+                    Vertex {
+                        xyz: vec3(p.x, p.y, args.z),
+                        rgba: args.c,
+                        uv: *uv,    // and also this uv would need to be * by args uv
+                        // uv: vec2(0.22, 0.222),
+                    }
+                });
+                let inds = [0, 1, 2, 0, 2, 3].into_iter();
+                buf.extend(verts, inds);
+            }
         }
     }
 }

@@ -31,12 +31,14 @@ impl VertexBufGPU {
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
             gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo)); // Bind the EBO
             // let vert_size: usize = std::mem::size_of::<Vertex>();
-            let vert_size = 28;
+            let vert_size = 4*9;
             dbg!(vert_size);
             gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, vert_size as i32, 0);
             gl.enable_vertex_attrib_array(0);
             gl.vertex_attrib_pointer_f32(1, 4, glow::FLOAT, false, vert_size as i32, 3 * 4);
             gl.enable_vertex_attrib_array(1);
+            gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, vert_size as i32, 7 * 4);
+            gl.enable_vertex_attrib_array(2);
             VertexBufGPU { vao, vbo, ebo, num_verts: 0 }
         }
     }

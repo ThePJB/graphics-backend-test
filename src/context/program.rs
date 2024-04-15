@@ -50,17 +50,24 @@ impl Program {
 }
 pub const DEFAULT_FS: &str = r#"#version 330 core
 in vec4 col;
+in vec2 uv;
 out vec4 frag_colour;
 
+uniform sampler2D tex;
+
+
 void main() {
-    frag_colour = col;
+    frag_colour = texture(tex, uv) * col;
+    // frag_colour = col;
 }
 "#;
 pub const DEFAULT_VS: &str = r#"#version 330 core
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec4 in_col;
+layout (location = 2) in vec2 in_uv;
 
 out vec4 col;
+out vec2 uv;
 
 // uniform mat4 projection;
 const mat4 projection = mat4(1.0);
@@ -68,6 +75,7 @@ const mat4 projection = mat4(1.0);
 
 void main() {
     col = in_col;
+    uv = in_uv;
     gl_Position = projection * vec4(in_pos, 1.0);
 }
 "#;
