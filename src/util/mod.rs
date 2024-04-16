@@ -6,7 +6,6 @@ mod vec3;
 mod vec4;
 mod ivec2;
 mod option_utils;
-mod render_command;
 mod gen_ref;
 mod image;
 
@@ -14,9 +13,5 @@ pub use vec2::*;
 pub use vec3::*;
 pub use vec4::*;
 pub use ivec2::*;
-pub use lerp::*;
 pub use constants::*;
-pub use option_utils::*;
-pub use render_command::*;
-pub use gen_ref::*;
 pub use image::*;

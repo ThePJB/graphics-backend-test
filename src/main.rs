@@ -1,16 +1,17 @@
 
 mod util;
-mod context;
 mod game;
-use crate::context::*;
+use crate::game::*;
 
 // well it looks like main is doing the switchy switchy not run, this is ok
 // maybe can use wasm-pack or something
 // how to set target
 
 fn main() {
-    let game = game::Game::default();
-    run_winit(game);
+    let context = Context::new("GL test");
+    let gl = context.get_gl();
+    let game = game::Game::new(gl);
+    context.run(game);
 }
 
 // a architecture for this that works with all the cooked web stuff:
