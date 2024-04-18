@@ -181,6 +181,16 @@ pub mod vec_macros {
         };
     }
     #[macro_export]
+    macro_rules! impl_norm {
+        ($type:ident, $scalar_type:ident $(, $field:ident)*) => {
+            impl $type {
+                pub fn norm(&self) -> $scalar_type {
+                    (self.$($field.powi(2) + )* 0).sqrt()
+                }
+            }
+        };
+    }
+    #[macro_export]
     macro_rules! impl_vec {
         ($type:ident, $scalar_type:ident, $( $field:ident ),* ) => {
             $crate::impl_binary_ops!($type, Add, add, + $(, $field)*);

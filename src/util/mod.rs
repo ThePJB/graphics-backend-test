@@ -8,6 +8,7 @@ mod ivec2;
 mod option_utils;
 mod gen_ref;
 mod image;
+mod file_utils;
 
 pub use vec2::*;
 pub use vec3::*;
@@ -15,3 +16,5 @@ pub use vec4::*;
 pub use ivec2::*;
 pub use constants::*;
 pub use image::*;
+pub use file_utils::*;
+pub use option_utils::*;

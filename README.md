@@ -62,3 +62,19 @@ vertex data seems good
 but draw col * sample is black
     frag_colour = texture(tex, uv) * col;
     // frag_colour = col;
+
+
+    // does texture atlas live in render context? maybe it has methods to alloc more shit to sub buffer it to the texture etc and thus keeps the rects  registry etc. sure
+
+
+    // random side note
+    can u have a iterator of a recursive function? Maybe it needs underlying of
+    like it needs start value and function to do to thing. so its like fold maybe. or like acc.
+    // lol this is a great idea, do it some day. it could re express many kinds of iterators
+    yea i guess the idea would be its a function that takes A and returns Option<A>, as the underlying trait, and then the iterator is made by calling the function repeatedly until it returns none
+    could also be A->A and a number and like yea an initial value needed too
+
+    // sheit this would maybe be able to do a iterator form of difference equations
+
+    // close, path to names, now we are loading resources
+    // soon just needs like the actor definitions or whatever

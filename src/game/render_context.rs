@@ -1,6 +1,9 @@
 use glow::*;
-
+use std::collections::HashMap;
 use crate::util::ImageBuffer;
+use std::path::Path;
+
+pub const ATLAS_WH: IVec2 = ivec2(1024, 1024);
 
 pub const FRAG: &str = r#"#version 330 core
 in vec4 col;
@@ -43,6 +46,7 @@ pub struct RenderContext {
     pub ebo: Buffer,
     pub texture: Texture,
     pub num_verts: usize,
+    pub resource_handles: HashMap<String, SpriteHandle>,
 }
 
 impl RenderContext {
@@ -100,7 +104,8 @@ impl RenderContext {
             gl.detach_shader(program, vs);
             gl.delete_shader(vs);
 
-            let im = ImageBuffer::from_bytes(include_bytes!("../../assets/guy.png"));
+            let mut im = ImageBuffer::new(ATLAS_WH);
+            im.fill(vec4(1.0, 0.0, 1.0, 1.0));
             let texture = gl.create_texture().unwrap();
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
             gl.tex_image_2d(
@@ -128,6 +133,7 @@ impl RenderContext {
                 ebo,
                 texture,
                 num_verts: 0,
+                resource_handles: HashMap::new(),
             }
         }
     }
@@ -142,16 +148,130 @@ impl RenderContext {
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
             self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.ebo));
             self.num_verts = buf.inds.len();
-            unsafe {
-                self.gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, buf.verts.as_bytes(), glow::STATIC_DRAW);
-                self.gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, buf.inds.as_bytes(), glow::STATIC_DRAW);
-            }
+            self.gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, buf.verts.as_bytes(), glow::STATIC_DRAW);
+            self.gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, buf.inds.as_bytes(), glow::STATIC_DRAW);
             self.gl.draw_elements(
                 glow::TRIANGLES,
                 self.num_verts as i32, // number of indices
                 glow::UNSIGNED_INT,   // type of indices
                 0                      // offset
             );
+        }
+    }
+    // ok can i make a based file system abstraction like visit or iterator. .visit().flat_map().
+
+    pub fn load_resources(&mut self, sprites_path: &std::path::Path) {
+        let mut paths = vec![];
+        dir_traverse(sprites_path, &mut |path| {
+            if path.extension().unwrap() == "png" {
+                paths.push(path.to_owned())
+            }
+        }).expect_with(|| sprites_path.to_string_lossy());
+        dbg!(sprites_path, &paths);
+        paths.sort();
+        let img_buffers = paths.iter().map(|p| {
+            let bytes = std::fs::read(p).unwrap();
+            let img = ImageBuffer::from_bytes(&bytes);
+            img
+        });
+        // yea this is pretty close just needs my patented paths to names function. xd
+        let names = paths.iter().map(|p| path_to_name_fn(p, sprites_path));
+        let resources = std::iter::zip(names, img_buffers);
+        dbg!("begin pack sprites");
+        self.pack_sprites(resources);
+    }
+
+    // sets the texture and the resource handles dictionary
+    pub fn pack_sprites(&mut self, resources: impl Iterator<Item = (String, ImageBuffer)>) {
+        let mut resource_tuples: Vec<(String, ImageBuffer)> = resources.collect();
+        resource_tuples.sort_by(|a, b| a.1.wh.dot(&a.1.wh).cmp(&b.1.wh.dot(&b.1.wh)));
+        // make a packing
+        let wh = ATLAS_WH;
+        let mut arena = Arena2D::new(wh);
+        for (name, sprite) in resource_tuples.into_iter() {
+            let xy = arena.alloc(sprite.wh);
+            // make the uvs in uv space and then store handle
+            // hmm what about using pixels vs storing the pixel w and h of the thing. pixels technically has full info
+            // can we convert it at the end
+            // na i dont think it matters i think we are in vertex land at this point
+            // hmm i will need to know it
+            let h = SpriteHandle { xy: xy.as_vec2() / wh.as_vec2(), wh: sprite.wh.as_vec2() / wh.as_vec2() };
+            self.resource_handles.insert(name, h);
+            //sub buffer 2d on the texture as well!
+
+                    
+            // update texture with new sprite data
+            unsafe {
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+                self.gl.tex_sub_image_2d(
+                    glow::TEXTURE_2D,
+                    0,
+                    0,
+                    0,
+                    sprite.wh.x as i32,
+                    sprite.wh.y as i32,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    glow::PixelUnpackData::Slice(&sprite.data.as_bytes()),
+                );
+            }
+        }
+    }
+}
+
+// lolz a string? I guess
+fn path_to_name_fn(path: &Path, base: &Path) -> String {
+    let components: Vec<String> = path
+        .strip_prefix(base)
+        .unwrap()
+        .components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(s) => Some(s),
+            _ => None,
+        })
+        .map(|x| x.to_str().unwrap())
+        .map(|x| x.split_once(".").map(|x| x.0).unwrap_or(x)) // map such that asdf.png is asdf, and anything else is identity
+        .map(|x| x.to_owned())
+        .collect();
+    components.join("/")
+}
+
+pub struct Arena2D {
+    rects: Vec<(IVec2, IVec2)>,
+    wh: IVec2,
+}
+impl Arena2D {
+    pub fn new(wh: IVec2) -> Self {
+        Arena2D {
+            rects: vec![],
+            wh,
+        }
+    }
+    pub fn alloc(&mut self, wh: IVec2) -> IVec2 {
+        let mut p = ivec2(0,0);
+        loop {
+            let mut r_idx = 0;
+            loop {
+                if p.x + wh.x > self.wh.x {
+                    p.x = 0;
+                    p.y += 1;
+                    r_idx = 0;
+                }
+                // break loop when able to alloc
+                if r_idx >= self.rects.len() {
+                    break;
+                }
+                let other_r = self.rects[r_idx];
+                if p + wh > other_r.0 && p < other_r.0 + other_r.1 {
+                    p.x = other_r.0.x + other_r.1.x;
+                    r_idx = 0;
+                    continue;
+                }
+                r_idx += 1;
+            }
+            // clear inner loop is where thing gets actually allocated.
+            self.rects.push((p, wh));
+            return p;
         }
     }
 }
@@ -178,7 +298,7 @@ fn test_as_bytes() {
     dbg!(b);
 }
 
-use crate::util::*;
+use crate::{util::*, SpriteHandle};
 
 #[derive(Debug, Clone)]
 #[repr(C, packed)]
@@ -217,8 +337,7 @@ pub struct RectArgs {
     pub wh: Vec2,
     pub z: f32,
     pub c: Vec4,
-    pub uv_xy: Vec2,
-    pub uv_wh: Vec2,
+    pub h: SpriteHandle,
 }
 
 
@@ -249,10 +368,11 @@ impl RenderCommand {
                 // let points = [args.xy, args.xy + args.wh.projx(), args.xy + args.wh, args.xy + args.wh.projy()];
                 let verts = uvs.iter().map(|uv| {
                     let p = args.xy + *uv*args.wh;
+                    let uv = args.h.xy + args.h.wh * *uv;
                     Vertex {
                         xyz: vec3(p.x, p.y, args.z),
                         rgba: args.c,
-                        uv: *uv,    // and also this uv would need to be * by args uv
+                        uv: uv,    // and also this uv would need to be * by args uv
                         // uv: vec2(0.22, 0.222),
                     }
                 });

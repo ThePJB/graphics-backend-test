@@ -6,35 +6,11 @@ use super::render_context::*;
 
 // this is pretty good, i should test it though eg whole atlas = some shit made of this and then add UVs and draw a UV triangle or a UV quad
 
-
+#[derive(Debug, Clone, Copy)]
 pub struct SpriteHandle {
     pub xy: Vec2,
     pub wh: Vec2,
 }
-
-pub struct Resources {
-    pub test: SpriteHandle,
-}
-
-impl Resources {
-    pub fn new(atlas: &mut Atlas, gl: &glow::Context) -> Self {
-        let mut image = ImageBuffer::new(ivec2(512,512));
-        image.fill(vec4(1.0, 1.0, 1.0, 1.0));
-        Self {
-            // test: atlas.alloc(gl, &image),
-            test: SpriteHandle {
-                xy: vec2(0.0, 0.0),
-                wh: vec2(1.0, 1.0),
-            }
-            // test: atlas.alloc(gl, &ImageBuffer::from_bytes(include_bytes!("../../assets/guy.png"))),
-        }
-    }
-}
-
-// yea this is like so easy to work with
-// ok gonna sign off now
-
-
 
 pub struct Game {
     rc: RenderContext,
@@ -51,8 +27,13 @@ impl App for Game {
 
 impl Game {
     pub fn new(gl: glow::Context) -> Self {
+        dbg!("game new");
+        let mut rc = RenderContext::new(gl);
+        dbg!("begin load resources");
+        rc.load_resources(std::path::Path::new("./assets"));
+        dbg!("end load resources");
         Self {
-            rc: RenderContext::new(gl)
+            rc
         }
     }
     pub fn render(&self) -> Vec<RenderCommand> {
@@ -67,8 +48,10 @@ impl Game {
                 wh: vec2(0.1, 0.1),
                 z: 0.0,
                 c: vec4(0.0, 0.0, 1.0, 1.0),
-                uv_xy: vec2(0.0, 0.0),
-                uv_wh: vec2(1.0, 1.0),
+                h: *self.rc.resource_handles.get("guy").expect_with(|| {
+                    let keys: Vec<String> = self.rc.resource_handles.keys().cloned().collect();
+                    keys.join("\n")
+                } ),
             }),
         ]
     }

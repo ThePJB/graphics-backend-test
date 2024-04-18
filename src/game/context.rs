@@ -47,8 +47,8 @@ impl Context {
         unsafe {
             let event_loop = glutin::event_loop::EventLoop::new();
             let window_builder = glutin::window::WindowBuilder::new()
-                    .with_title(name)
-                    .with_inner_size(glutin::dpi::LogicalSize::new(INTERNAL_XRES, INTERNAL_YRES));
+                .with_title(name)
+                .with_inner_size(glutin::dpi::LogicalSize::new(INTERNAL_XRES, INTERNAL_YRES));
             let window = glutin::ContextBuilder::new()
                 .with_vsync(true)
                 .build_windowed(window_builder, &event_loop)
