@@ -1,80 +1,41 @@
-https://ianjk.com/rust-gamejam/
-cargo watch ran the build script automatically whenever the code was saved.
-devserver hosted the local web page and automatically reloaded it when a file changed
-Visual Studio Code was configured to automatically save
-
-OK fuck this unless winit can do wasm
-
-// https://github.com/dabreegster/minimal_websys_winit_glow_demo/blob/main/src/lib.rs
-
-this is pretty based but yeh lookin pretty hard
-like have to do asset loading and sound as well
-
-what if we only targeted web lmao. the based platform.
+OK What am I doing
+Its not until I have working characters that I can put this into the game.
+Clean up. Do we still like the anim shit? Just need to make sure I can define a necromancer hey.
 
 
+ok i mean anim seems pretty good now just have to test it, impl Render for EntityAppearance that spits out the render commands
 
-now so for assets do i want like a master struct of asset handles? and instancing that is like loading all of it. and on that u do load and unload too
+then render a lil guy and change his look etc
+each layer may technically have own look, i was str8 hackin that in before
 
-or do we auto load into a dictionary and reference by Rc<str>
+more toiling in the mines
+get lil guy workin
 
-maybe the struct is based
+maybe i need to render directly a sprite first
 
-it needs 2d allocation into an atlas when the handle is issued.
-handles get issued and stored in accessible struct thereafter.
+ohh its failing to locate asset folder indebugger. ok i done for today
 
-ok tomorrows coding i reckon. Get sprite drawing (atlas resource system) load and delete etc.
+its a bit of like why dont i have a render trait
+which in a way im impling render for game.
+
+and the impl is probably calling render. yea thats pretty sick
 
 
-vec macros need to make dot, unit
+Hey its pretty working
+but, how are we determining size and also why isnt it only a slice
 
 
 
-compare texture shit
-uvs right?
-
-yeh idfk maybe look in render doc
-
-didnt do any texture unit 0 shit. have had to do that before
-can game just own gl?
-and made with new
-
-yea its possible rendercontext just owns gl, vbo, vao, etc and lives in game.
-and maybe goodbye a lot of the abstractions
-not sure if im missing a call or something
+Ok its kinda working
+ - determine size of vertices from handle wh * res / atlas res or whatever
+ - not sure about keys. bool walking, bool idle? not idle maybe casting
+ - not sure its working for the key - unit test through stages of animation yea
+ honestly probably keep own count of where in animation cycle so speed can be modified like if walking speed has a modification eg slow terrain
 
 
-colours are scrambled
-uvs r cooked
-its like it backward or something
-quads uvs are 1 1 1 1
-colours right uvs wrong
+ ok layer height zs must be negative lol. keep it in mind
+ but yea its like working. what about vertex size eh
 
-y tf does printing it seem to say the right thing and then in renderdoc it says a different thing
-rewrite, simplify, etc
-try to do agile ay
-
-
-texture binding is wrong or something
-or needs some texture unit 0 or something
-bc the texture is right
-vertex data seems good
-but draw col * sample is black
-    frag_colour = texture(tex, uv) * col;
-    // frag_colour = col;
-
-
-    // does texture atlas live in render context? maybe it has methods to alloc more shit to sub buffer it to the texture etc and thus keeps the rects  registry etc. sure
-
-
-    // random side note
-    can u have a iterator of a recursive function? Maybe it needs underlying of
-    like it needs start value and function to do to thing. so its like fold maybe. or like acc.
-    // lol this is a great idea, do it some day. it could re express many kinds of iterators
-    yea i guess the idea would be its a function that takes A and returns Option<A>, as the underlying trait, and then the iterator is made by calling the function repeatedly until it returns none
-    could also be A->A and a number and like yea an initial value needed too
-
-    // sheit this would maybe be able to do a iterator form of difference equations
-
-    // close, path to names, now we are loading resources
-    // soon just needs like the actor definitions or whatever
+ and the render to texture thing
+ and gl viewport etc
+ and scaling

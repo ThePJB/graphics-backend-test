@@ -1,7 +1,6 @@
 use glow::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, f32::consts::PI};
 use crate::util::ImageBuffer;
-use std::path::Path;
 
 pub const ATLAS_WH: IVec2 = ivec2(1024, 1024);
 
@@ -37,6 +36,10 @@ void main() {
     gl_Position = projection * vec4(in_pos, 1.0);
 }
 "#;
+
+// pub trait Draw {
+//     fn draw(&self) -> impl Iterator<Item = RenderCommand>;
+// }
 
 pub struct RenderContext {
     pub gl: Context,
@@ -158,145 +161,8 @@ impl RenderContext {
             );
         }
     }
-    // ok can i make a based file system abstraction like visit or iterator. .visit().flat_map().
-
-    pub fn load_resources(&mut self, sprites_path: &std::path::Path) {
-        let mut paths = vec![];
-        dir_traverse(sprites_path, &mut |path| {
-            if path.extension().unwrap() == "png" {
-                paths.push(path.to_owned())
-            }
-        }).expect_with(|| sprites_path.to_string_lossy());
-        dbg!(sprites_path, &paths);
-        paths.sort();
-        let img_buffers = paths.iter().map(|p| {
-            let bytes = std::fs::read(p).unwrap();
-            let img = ImageBuffer::from_bytes(&bytes);
-            img
-        });
-        // yea this is pretty close just needs my patented paths to names function. xd
-        let names = paths.iter().map(|p| path_to_name_fn(p, sprites_path));
-        let resources = std::iter::zip(names, img_buffers);
-        dbg!("begin pack sprites");
-        self.pack_sprites(resources);
-    }
-
-    // sets the texture and the resource handles dictionary
-    pub fn pack_sprites(&mut self, resources: impl Iterator<Item = (String, ImageBuffer)>) {
-        let mut resource_tuples: Vec<(String, ImageBuffer)> = resources.collect();
-        resource_tuples.sort_by(|a, b| a.1.wh.dot(&a.1.wh).cmp(&b.1.wh.dot(&b.1.wh)));
-        // make a packing
-        let wh = ATLAS_WH;
-        let mut arena = Arena2D::new(wh);
-        for (name, sprite) in resource_tuples.into_iter() {
-            let xy = arena.alloc(sprite.wh);
-            // make the uvs in uv space and then store handle
-            // hmm what about using pixels vs storing the pixel w and h of the thing. pixels technically has full info
-            // can we convert it at the end
-            // na i dont think it matters i think we are in vertex land at this point
-            // hmm i will need to know it
-            let h = SpriteHandle { xy: xy.as_vec2() / wh.as_vec2(), wh: sprite.wh.as_vec2() / wh.as_vec2() };
-            self.resource_handles.insert(name, h);
-            //sub buffer 2d on the texture as well!
-
-                    
-            // update texture with new sprite data
-            unsafe {
-                self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-                self.gl.tex_sub_image_2d(
-                    glow::TEXTURE_2D,
-                    0,
-                    0,
-                    0,
-                    sprite.wh.x as i32,
-                    sprite.wh.y as i32,
-                    glow::RGBA,
-                    glow::UNSIGNED_BYTE,
-                    glow::PixelUnpackData::Slice(&sprite.data.as_bytes()),
-                );
-            }
-        }
-    }
 }
 
-// lolz a string? I guess
-fn path_to_name_fn(path: &Path, base: &Path) -> String {
-    let components: Vec<String> = path
-        .strip_prefix(base)
-        .unwrap()
-        .components()
-        .filter_map(|c| match c {
-            std::path::Component::Normal(s) => Some(s),
-            _ => None,
-        })
-        .map(|x| x.to_str().unwrap())
-        .map(|x| x.split_once(".").map(|x| x.0).unwrap_or(x)) // map such that asdf.png is asdf, and anything else is identity
-        .map(|x| x.to_owned())
-        .collect();
-    components.join("/")
-}
-
-pub struct Arena2D {
-    rects: Vec<(IVec2, IVec2)>,
-    wh: IVec2,
-}
-impl Arena2D {
-    pub fn new(wh: IVec2) -> Self {
-        Arena2D {
-            rects: vec![],
-            wh,
-        }
-    }
-    pub fn alloc(&mut self, wh: IVec2) -> IVec2 {
-        let mut p = ivec2(0,0);
-        loop {
-            let mut r_idx = 0;
-            loop {
-                if p.x + wh.x > self.wh.x {
-                    p.x = 0;
-                    p.y += 1;
-                    r_idx = 0;
-                }
-                // break loop when able to alloc
-                if r_idx >= self.rects.len() {
-                    break;
-                }
-                let other_r = self.rects[r_idx];
-                if p + wh > other_r.0 && p < other_r.0 + other_r.1 {
-                    p.x = other_r.0.x + other_r.1.x;
-                    r_idx = 0;
-                    continue;
-                }
-                r_idx += 1;
-            }
-            // clear inner loop is where thing gets actually allocated.
-            self.rects.push((p, wh));
-            return p;
-        }
-    }
-}
-
-trait AsBytes {
-    fn as_bytes(&self) -> &[u8];
-}
-
-impl<T> AsBytes for Vec<T> {
-    fn as_bytes(&self) -> &[u8] {
-        // Get a pointer to the data and calculate the length in bytes
-        let ptr = self.as_ptr() as *const u8;
-        let len = self.len() * std::mem::size_of::<T>();
-
-        // Convert the pointer and length to a byte slice
-        unsafe { std::slice::from_raw_parts(ptr, len) }
-    }
-}
-
-#[test]
-fn test_as_bytes() {
-    let a = vec![1i32, 1000i32, 0i32, 1i32];
-    let b = a.as_bytes();
-    dbg!(b);
-}
 
 use crate::{util::*, SpriteHandle};
 
@@ -339,18 +205,23 @@ pub struct RectArgs {
     pub c: Vec4,
     pub h: SpriteHandle,
 }
-
+#[derive(Debug)]
+pub struct SpriteArgs {
+    pub center: Vec2,
+    pub radians: f32,
+    pub z: f32,
+    pub c: Vec4,
+    pub h: SpriteHandle,
+    pub frame: u8,
+    pub num_frames: u8,
+}
 
 #[derive(Debug)]
 pub enum RenderCommand {
     Triangle(TriangleArgs),
     Rect(RectArgs),
+    Sprite(SpriteArgs),
 }
-
-// lol would separate top and bottom vertex colour allow for cheesy gradients? might be kinda silly cause of the perspective or might be kinda cool
-// anywhome easy to support
-
-// but i guess the idea is like, im making triangle, i want to reuse triangle code for the other shapes too. except its indexed drawing actually so meh. might be able to recusrive the function though, build enum and call
 
 impl RenderCommand {
     pub fn draw(&self, buf: &mut VertexBufCPU) {
@@ -369,6 +240,35 @@ impl RenderCommand {
                 let verts = uvs.iter().map(|uv| {
                     let p = args.xy + *uv*args.wh;
                     let uv = args.h.xy + args.h.wh * *uv;
+                    Vertex {
+                        xyz: vec3(p.x, p.y, args.z),
+                        rgba: args.c,
+                        uv: uv,    // and also this uv would need to be * by args uv
+                        // uv: vec2(0.22, 0.222),
+                    }
+                });
+                let inds = [0, 1, 2, 0, 2, 3].into_iter();
+                buf.extend(verts, inds);
+            }
+            Self::Sprite(args) => {
+                let mut h = args.h;
+                h.wh.x /= args.num_frames as f32;
+                h.xy.x += args.frame as f32 * h.wh.x;
+                // oh shit needs to also be centered
+                let uvs = [vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)];
+                let uv_rots = uvs.map(|p| {
+                    let p = (p - vec2(0.5, 0.5)) * 2.0;
+                    let theta = p.y.atan2(p.x);
+                    let theta = theta + args.radians;
+                    let p = vec2(theta.cos(), theta.sin()) * 0.5;
+                    let p = p / h.wh * ATLAS_WH.as_vec2() / INTERNAL_WH;
+                    let p = p / 4.0; // not super sure why its 4 but it seems to be 4 lol
+                    p
+                });
+                // let points = [args.xy, args.xy + args.wh.projx(), args.xy + args.wh, args.xy + args.wh.projy()];
+                let verts = (0..4).map(|i| (uvs[i], uv_rots[i])).map(|(uv, uv_rot)| {
+                    let p = args.center + uv_rot*h.wh;
+                    let uv = h.xy + h.wh * uv;
                     Vertex {
                         xyz: vec3(p.x, p.y, args.z),
                         rgba: args.c,
