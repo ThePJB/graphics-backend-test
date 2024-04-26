@@ -27,7 +27,6 @@ impl RenderContext {
 
     // sets the texture and the resource handles dictionary
     pub fn pack_sprites(&mut self, resources: impl Iterator<Item = (String, ImageBuffer)>) {
-        dbg!("begin pack sprites");
         let mut resource_tuples: Vec<(String, ImageBuffer)> = resources.collect();
         resource_tuples.sort_by(|a, b| {
             let a = a.1.wh.dot(&a.1.wh);
@@ -40,7 +39,6 @@ impl RenderContext {
         resource_tuples.iter().for_each(|rt| {dbg!(&rt.0);});
         for (name, sprite) in resource_tuples.into_iter() {
             let r = arena.alloc(sprite.wh);
-            println!("finish alloc with xy {:?} for {}", r, &name);
             let h = SpriteHandle { xy: r.xy.as_vec2() / wh.as_vec2(), wh: r.wh.as_vec2() / wh.as_vec2() };
             self.resource_handles.insert(name, h);
             //sub buffer 2d on the texture as well!
@@ -59,7 +57,6 @@ impl RenderContext {
                 );
             }
         }
-        dbg!("end pack sprites");
     }
 }
 
@@ -122,7 +119,6 @@ impl Arena2D {
         }
     }
     fn alloc_x(&self, y: i32, wh: IVec2) -> Option<IRect2> {
-        println!("alloc x y={}",y);
         let mut x = 0;
         loop {
             let candidate_r = IRect2 {
@@ -132,7 +128,6 @@ impl Arena2D {
             if x+wh.x >= self.wh.x {
                 return None;
             }
-            println!("loop candidate_r = {:?}",candidate_r);
             let overlapper = self.rects.iter().find(|r| r.overlaps(&candidate_r));
             match overlapper {
                 Some(r) => x = r.xy.x + r.wh.x - 1,
@@ -142,7 +137,6 @@ impl Arena2D {
         }
     }
     pub fn alloc(&mut self, wh: IVec2) -> IRect2 {
-        println!("alloc {:?}", wh);
         for j in 0..(ATLAS_WH.y-wh.y) {
             if let Some(r) = self.alloc_x(j, wh) {
                 self.rects.push(r);

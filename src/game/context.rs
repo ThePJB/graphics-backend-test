@@ -21,7 +21,8 @@ pub struct Input {
     pub click_rmb: bool,
     pub mouse_px: Vec2, // does everyone just want mouse_px in ndc coords?
     pub pause: bool,
-    pub scroll: i32,                // ye just write here from game events
+    pub scroll: i32,
+    pub resize: Option<IVec2>,                // ye just write here from game events
 }
 
 impl Input {
@@ -77,8 +78,7 @@ impl Context {
                 Event::WindowEvent { event, .. } => {
                     match event {
                         WindowEvent::Resized(size) => {
-                            // self.resize(size.width as f32, size.height as f32)
-                            // glViewport etc
+                            self.input.resize = Some(ivec2(size.width as _, size.height as _));
                         },
                         WindowEvent::CloseRequested => {
                             *control_flow = glutin::event_loop::ControlFlow::Exit;

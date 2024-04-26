@@ -82,7 +82,6 @@ impl Layer {
             self.select_idle_anim(keys);
         }
         self.t_last_update = t;
-        println!("updating {} {} {}", self.z, self.curr_frame, self.curr_anim);
     }
     fn select_idle_anim(&mut self, keys: &HashSet<String>) {
         if keys.contains("walk") && self.anims.contains_key("walk") {
@@ -175,7 +174,7 @@ pub fn necromancer_appearance(res: &HashMap<String, SpriteHandle>) -> EntityAppe
 
 #[test]
 fn test_draw() {
-    let layer = Layer::new(vec4(0.5, 1.0, 0.0, 1.0), 0.0, [("idle", SpriteHandle{xy: vec2(0.0, 0.0), wh: vec2(1.0, 1.0)}, 10, true)].into_iter());
+    let layer = Layer::new(vec4(0.5, 1.0, 0.0, 1.0), 0.0, [("idle", SpriteHandle{xy: ivec2(0, 0), wh: ATLAS_WH}, 10, true)].into_iter());
     let mut appearance = EntityAppearance::new(vec![layer]);
     appearance.add_key("idle".to_owned());
     dbg!(&appearance);

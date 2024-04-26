@@ -7,8 +7,8 @@ use super::render_context::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpriteHandle {
-    pub xy: Vec2,
-    pub wh: Vec2,
+    pub xy: IVec2,
+    pub wh: IVec2,
 }
 
 pub struct Game {
@@ -19,6 +19,9 @@ pub struct Game {
 
 impl App for Game {
     fn frame(&mut self, input: Input) {
+        if let Some(resize) = input.resize {
+            self.rc.resize(resize);
+        }
         let dt = 0.016;
         self.t += dt;
         self.guy.update(self.t);
@@ -37,7 +40,6 @@ impl Game {
         rc.load_resources(std::path::Path::new("./assets"));
         dbg!("end load resources");
 
-
         let ea = necromancer_appearance(&rc.resource_handles);
 
         Self {
@@ -48,7 +50,6 @@ impl Game {
     }
     pub fn draw(&self) -> Vec<RenderCommand> {
         // let n = crate::game::anim::necromancer_appearance(&self.rc.resource_handles);
-        let layer = Layer::new(vec4(0.5, 1.0, 0.0, 1.0), 0.0, [("idle", SpriteHandle{xy: vec2(0.0, 0.0), wh: vec2(1.0, 1.0)}, 10, true)].into_iter());
         let mut v = vec![
             // RenderCommand::Triangle(TriangleArgs {
             //     p: [vec2(-1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 0.0)],
@@ -70,8 +71,6 @@ impl Game {
         ];
         // n.render(&mut v, vec2(0.0, 0.0), vec2(1.0, 0.0));
         v.extend(self.guy.draw(vec2(0.0, 0.0), vec2(1.0, 0.0)));
-        dbg!(v.len());
-        dbg!(&v);
         v
     }
 }

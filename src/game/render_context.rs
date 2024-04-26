@@ -161,6 +161,12 @@ impl RenderContext {
             );
         }
     }
+
+    pub fn resize(&mut self, wh: IVec2) {
+        unsafe {
+            self.gl.viewport(0, 0, wh.x, wh.y);
+        }
+    }
 }
 
 
@@ -190,21 +196,21 @@ impl VertexBufCPU {
     }
 }
 
-#[derive(Debug)]
-pub struct TriangleArgs {
-    pub p: [Vec2; 3],
-    pub z: f32,
-    pub c: Vec4,
-}
+// #[derive(Debug)]
+// pub struct TriangleArgs {
+//     pub p: [Vec2; 3],
+//     pub z: f32,
+//     pub c: Vec4,
+// }
 
-#[derive(Debug)]
-pub struct RectArgs {
-    pub xy: Vec2,
-    pub wh: Vec2,
-    pub z: f32,
-    pub c: Vec4,
-    pub h: SpriteHandle,
-}
+// #[derive(Debug)]
+// pub struct RectArgs {
+//     pub xy: Vec2,
+//     pub wh: Vec2,
+//     pub z: f32,
+//     pub c: Vec4,
+//     pub h: SpriteHandle,
+// }
 #[derive(Debug)]
 pub struct SpriteArgs {
     pub center: Vec2,
@@ -218,8 +224,8 @@ pub struct SpriteArgs {
 
 #[derive(Debug)]
 pub enum RenderCommand {
-    Triangle(TriangleArgs),
-    Rect(RectArgs),
+    // Triangle(TriangleArgs),
+    // Rect(RectArgs),
     Sprite(SpriteArgs),
 }
 
