@@ -128,10 +128,10 @@ impl EntityAppearance {
     pub fn update(&mut self, t: f32) {
         self.layers.iter_mut().for_each(|l| l.update(t, &self.keys))
     }
-    pub fn draw(&self, pos: Vec2, facing: Vec2) -> impl Iterator<Item = RenderCommand> + '_ {
+    pub fn draw(&self, pos: Vec2, radians: f32) -> impl Iterator<Item = RenderCommand> + '_ {
         self.layers.iter().map(move |layer| {
             RenderCommand::Sprite(
-                layer.sprite_args(pos, facing.y.atan2(facing.x))
+                layer.sprite_args(pos, radians)
             )
         })
     }
@@ -178,10 +178,10 @@ fn test_draw() {
     let mut appearance = EntityAppearance::new(vec![layer]);
     appearance.add_key("idle".to_owned());
     dbg!(&appearance);
-    let rcs: Vec<RenderCommand> = appearance.draw(vec2(0.0, 0.0), vec2(1.0, 0.0)).collect();
+    let rcs: Vec<RenderCommand> = appearance.draw(vec2(0.0, 0.0), 0.0).collect();
     dbg!(&rcs);
     appearance.update(1.0);
     dbg!(&appearance);
-    let rcs: Vec<RenderCommand> = appearance.draw(vec2(0.0, 0.0), vec2(1.0, 0.0)).collect();
+    let rcs: Vec<RenderCommand> = appearance.draw(vec2(0.0, 0.0), 0.0).collect();
     dbg!(&rcs);
 }

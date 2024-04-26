@@ -19,6 +19,14 @@ impl Vec2 {
     pub fn projy(&self) -> Vec2 {
         vec2(0.0, self.y)
     }
+    pub fn rotate(&self, theta: f32) -> Vec2 {
+        let c = theta.cos();
+        let s = theta.sin();
+        let c1 = vec2(c, s);
+        let c2 = vec2(-s, c);
+        vec2(c1.dot(&self), c2.dot(&self))
+    }
 }
+
 
 impl_vec!(Vec2, f32, x, y);

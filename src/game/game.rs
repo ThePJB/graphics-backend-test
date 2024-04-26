@@ -4,6 +4,7 @@ use crate::util::*;
 use crate::game::anim::*;
 use super::context::*;
 use super::render_context::*;
+use super::entity::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpriteHandle {
@@ -14,7 +15,7 @@ pub struct SpriteHandle {
 pub struct Game {
     rc: RenderContext,
     t: f32,
-    guy: EntityAppearance,
+    guy: Entity,
 }
 
 impl App for Game {
@@ -22,9 +23,7 @@ impl App for Game {
         if let Some(resize) = input.resize {
             self.rc.resize(resize);
         }
-        let dt = 0.016;
-        self.t += dt;
-        self.guy.update(self.t);
+        self.step(0.016);
         let render_list = self.draw();
         let mut buf = VertexBufCPU::default();
         render_list.iter().for_each(|rc| rc.draw(&mut buf));
@@ -45,8 +44,14 @@ impl Game {
         Self {
             rc,
             t: 0.0,
-            guy: ea
+            guy: Entity { appearance: ea, pos: vec2(0.0, 0.0), radians: 0.0 }
         }
+    }
+    pub fn step(&mut self, dt: f32) {
+        self.t += dt;
+        self.guy.pos = vec2(0.5, 0.0).rotate(self.t * 0.25);
+        self.guy.radians = -self.t;
+        self.guy.appearance.update(self.t);
     }
     pub fn draw(&self) -> Vec<RenderCommand> {
         // let n = crate::game::anim::necromancer_appearance(&self.rc.resource_handles);
@@ -70,7 +75,7 @@ impl Game {
             // RenderCommand::Sprite(SpriteArgs { center: vec2(0.0, 0.0), radians: PI/8.0, z: -0.3, c: vec4(0.5, 1.0, 0.0, 1.0), h: *self.rc.resource_handles.get("guy/head/idle").unwrap(), num_frames: 9, frame: 0 }),
         ];
         // n.render(&mut v, vec2(0.0, 0.0), vec2(1.0, 0.0));
-        v.extend(self.guy.draw(vec2(0.0, 0.0), vec2(1.0, 0.0)));
+        v.extend(self.guy.appearance.draw(self.guy.pos, self.guy.radians));
         v
     }
 }

@@ -232,49 +232,42 @@ pub enum RenderCommand {
 impl RenderCommand {
     pub fn draw(&self, buf: &mut VertexBufCPU) {
         match self {
-            Self::Triangle(args) => {
-                buf.extend(args.p.iter().map(|p| Vertex {
-                    xyz: vec3(p.x, p.y, args.z),
-                    rgba: args.c,
-                    uv: vec2(0.0, 0.0),
-                }), 
-                0..3)
-            },
-            Self::Rect(args) => {
-                let uvs = [vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)];
-                // let points = [args.xy, args.xy + args.wh.projx(), args.xy + args.wh, args.xy + args.wh.projy()];
-                let verts = uvs.iter().map(|uv| {
-                    let p = args.xy + *uv*args.wh;
-                    let uv = args.h.xy + args.h.wh * *uv;
-                    Vertex {
-                        xyz: vec3(p.x, p.y, args.z),
-                        rgba: args.c,
-                        uv: uv,    // and also this uv would need to be * by args uv
-                        // uv: vec2(0.22, 0.222),
-                    }
-                });
-                let inds = [0, 1, 2, 0, 2, 3].into_iter();
-                buf.extend(verts, inds);
-            }
             Self::Sprite(args) => {
-                let mut h = args.h;
-                h.wh.x /= args.num_frames as f32;
-                h.xy.x += args.frame as f32 * h.wh.x;
-                // oh shit needs to also be centered
+                let h = args.h;
+                let mut wh = h.wh.as_vec2() / ATLAS_WH.as_vec2();
+                wh.x /= args.num_frames as f32;
+                // normalized fkn uv like atlas coordinates
+                let mut xy = h.xy.as_vec2() / ATLAS_WH.as_vec2();
+                xy.x += args.frame as f32 * wh.x;
+
+                let yy = vec2(INTERNAL_YRES, INTERNAL_YRES);
+                let mut wh_ndc = 2.0 * h.wh.as_vec2() / yy;
+                wh_ndc.x /= args.num_frames as f32;
+
+                // wh wants like 
+                // ok so how many pixels are u in ndc bra
+
+
                 let uvs = [vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)];
-                let uv_rots = uvs.map(|p| {
-                    let p = (p - vec2(0.5, 0.5)) * 2.0;
-                    let theta = p.y.atan2(p.x);
-                    let theta = theta + args.radians;
-                    let p = vec2(theta.cos(), theta.sin()) * 0.5;
-                    let p = p / h.wh * ATLAS_WH.as_vec2() / INTERNAL_WH;
-                    let p = p / 4.0; // not super sure why its 4 but it seems to be 4 lol
-                    p
-                });
+                // let mut wh_ndc = h.wh.as_vec2() / INTERNAL_WH * 2.0; // such that like if wh was INTERNAL_WH
+                // wh_ndc.x /= args.num_frames as f32;
+                let uv_rots = oriented_rect_2d_points(args.radians, wh_ndc, vec2(0.0, 0.0));
+
+                // let uv_rots = 
+                // let uv_rots = uvs.map(|p| {
+                //     let p = (p - vec2(0.5, 0.5)) * 2.0;
+                //     let theta = p.y.atan2(p.x);
+                //     let theta = theta + args.radians;
+                //     let p = vec2(theta.cos(), theta.sin());
+                //     let p = p / wh * ATLAS_WH.as_vec2() / INTERNAL_WH;
+                //     let p = p / 4.0; // not super sure why its 4 but it seems to be 4 lol
+                //     p
+                // });
                 // let points = [args.xy, args.xy + args.wh.projx(), args.xy + args.wh, args.xy + args.wh.projy()];
+                let stretch_vec = INTERNAL_WH / yy;
                 let verts = (0..4).map(|i| (uvs[i], uv_rots[i])).map(|(uv, uv_rot)| {
-                    let p = args.center + uv_rot*h.wh;
-                    let uv = h.xy + h.wh * uv;
+                    let p = args.center + uv_rot/stretch_vec;
+                    let uv = xy + wh * uv;
                     Vertex {
                         xyz: vec3(p.x, p.y, args.z),
                         rgba: args.c,
@@ -287,6 +280,18 @@ impl RenderCommand {
             }
         }
     }
+}
+
+fn oriented_rect_2d_points(theta: f32, wh: Vec2, center: Vec2) -> [Vec2; 4] {
+    let vo = wh.projx().rotate(theta);
+    let vn = wh.projy().rotate(theta);
+    let uv_rots = [center-vo/2.0 - vn/2.0, center+vo/2.0-vn/2.0, center+vo/2.0+vn/2.0, center-vo/2.0+vn/2.0];
+    uv_rots
+}
+
+#[test]
+fn test_opoints() {
+    dbg!(oriented_rect_2d_points(PI/2.0, vec2(2.0, 1.0), vec2(0.0, 0.0)));
 }
 
 

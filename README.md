@@ -65,4 +65,4 @@ i reckon we downsample lighting and stuff a fair bit and maybe marching squares 
  Todo - defer changing to uvs to later in the pipeline
  hopefully fixing the scaling issue
 
-
+stretching needs to happen after rotation and shit

@@ -39,7 +39,7 @@ impl RenderContext {
         resource_tuples.iter().for_each(|rt| {dbg!(&rt.0);});
         for (name, sprite) in resource_tuples.into_iter() {
             let r = arena.alloc(sprite.wh);
-            let h = SpriteHandle { xy: r.xy.as_vec2() / wh.as_vec2(), wh: r.wh.as_vec2() / wh.as_vec2() };
+            let h = SpriteHandle { xy: r.xy, wh: r.wh };
             self.resource_handles.insert(name, h);
             //sub buffer 2d on the texture as well!
             unsafe {
