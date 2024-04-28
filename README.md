@@ -76,3 +76,14 @@ or add HDR / emission
 
 maybe we merge then add hdr etc
 would hdr etc need stuff to change or no? maybe we do hdr first
+
+// def want to auto add a white square and a transparent black square so that it can render shapes and null
+
+hecc it falls apart because the vertex data is different for emission
+its also prob a lot less tho so i could remake it.
+
+
+// ok its working. now emission needs to probably be like lower level and blurred a shit tone especially with the magnitude thing. could also be just w component meh.
+// so we actually do emission first, then we would render it to a texture like the emission map, and also need sky light, and then render the albedo with * light map sort of thing
+// would we init light map with sky lights maybe?
+// is it gonna look shit do we also do a pass at full res of emission_detail or something

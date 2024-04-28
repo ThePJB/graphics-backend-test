@@ -48,6 +48,7 @@ pub struct RenderContext {
     pub vbo: Buffer,
     pub ebo: Buffer,
     pub texture: Texture,
+    pub texture_emit: Texture,
     pub num_verts: usize,
     pub resource_handles: HashMap<String, SpriteHandle>,
 }
@@ -128,6 +129,27 @@ impl RenderContext {
 
             gl.generate_mipmap(glow::TEXTURE_2D);
 
+            let mut im = ImageBuffer::new(ATLAS_WH);
+            im.fill(vec4(1.0, 0.0, 1.0, 0.0));
+            let texture_emit = gl.create_texture().unwrap();
+            gl.bind_texture(glow::TEXTURE_2D, Some(texture_emit));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D, 
+                0, 
+                glow::RGBA as i32, 
+                im.wh.x as i32, im.wh.y as i32, 
+                0, 
+                RGBA, 
+                glow::UNSIGNED_BYTE, 
+                Some(&im.data)
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+
+            gl.generate_mipmap(glow::TEXTURE_2D);
+
             RenderContext {
                 gl,
                 program,
@@ -135,18 +157,28 @@ impl RenderContext {
                 vbo,
                 ebo,
                 texture,
+                texture_emit,
                 num_verts: 0,
                 resource_handles: HashMap::new(),
             }
         }
     }
 
-    pub fn frame(&mut self, buf: VertexBufCPU) {
+    pub fn frame(&mut self, render_list: &Vec<RenderCommand>) {
         unsafe {
             self.gl.clear_color(0.5, 0.5, 0.5, 1.0);
             self.gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT); 
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
             self.gl.use_program(Some(self.program));
+        }
+        self.albedo(render_list);
+        self.emission(render_list);
+    }
+
+    pub fn albedo(&mut self, render_list: &Vec<RenderCommand>) {
+        let mut buf = VertexBufCPU::default();
+        render_list.iter().for_each(|rc| rc.draw_albedo(&mut buf));
+        unsafe {
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
             self.gl.bind_vertex_array(Some(self.vao));
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
             self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.ebo));
@@ -155,9 +187,28 @@ impl RenderContext {
             self.gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, buf.inds.as_bytes(), glow::STATIC_DRAW);
             self.gl.draw_elements(
                 glow::TRIANGLES,
-                self.num_verts as i32, // number of indices
+                self.num_verts as i32,       // number of indices
                 glow::UNSIGNED_INT,   // type of indices
-                0                      // offset
+                0                           // offset
+            );
+        }
+    }
+    pub fn emission(&mut self, render_list: &Vec<RenderCommand>) {
+        let mut buf = VertexBufCPU::default();
+        render_list.iter().for_each(|rc| rc.draw_emission(&mut buf));
+        unsafe {
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_emit));
+            self.gl.bind_vertex_array(Some(self.vao));
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
+            self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.ebo));
+            self.num_verts = buf.inds.len();
+            self.gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, buf.verts.as_bytes(), glow::STATIC_DRAW);
+            self.gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, buf.inds.as_bytes(), glow::STATIC_DRAW);
+            self.gl.draw_elements(
+                glow::TRIANGLES,
+                self.num_verts as i32,       // number of indices
+                glow::UNSIGNED_INT,   // type of indices
+                0                           // offset
             );
         }
     }
@@ -231,40 +282,19 @@ pub enum RenderCommand {
 }
 
 impl RenderCommand {
-    pub fn draw(&self, buf: &mut VertexBufCPU) {
+    pub fn draw_albedo(&self, buf: &mut VertexBufCPU) {
         match self {
             Self::Sprite(args) => {
                 let h = args.h;
                 let mut wh = h.wh.as_vec2() / ATLAS_WH.as_vec2();
                 wh.x /= args.num_frames as f32;
-                // normalized fkn uv like atlas coordinates
                 let mut xy = h.xy.as_vec2() / ATLAS_WH.as_vec2();
                 xy.x += args.frame as f32 * wh.x;
-
                 let yy = vec2(INTERNAL_YRES, INTERNAL_YRES);
                 let mut wh_ndc = 2.0 * h.wh.as_vec2() / yy;
                 wh_ndc.x /= args.num_frames as f32;
-
-                // wh wants like 
-                // ok so how many pixels are u in ndc bra
-
-
                 let uvs = [vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)];
-                // let mut wh_ndc = h.wh.as_vec2() / INTERNAL_WH * 2.0; // such that like if wh was INTERNAL_WH
-                // wh_ndc.x /= args.num_frames as f32;
                 let uv_rots = oriented_rect_2d_points(args.radians, wh_ndc, vec2(0.0, 0.0));
-
-                // let uv_rots = 
-                // let uv_rots = uvs.map(|p| {
-                //     let p = (p - vec2(0.5, 0.5)) * 2.0;
-                //     let theta = p.y.atan2(p.x);
-                //     let theta = theta + args.radians;
-                //     let p = vec2(theta.cos(), theta.sin());
-                //     let p = p / wh * ATLAS_WH.as_vec2() / INTERNAL_WH;
-                //     let p = p / 4.0; // not super sure why its 4 but it seems to be 4 lol
-                //     p
-                // });
-                // let points = [args.xy, args.xy + args.wh.projx(), args.xy + args.wh, args.xy + args.wh.projy()];
                 let stretch_vec = INTERNAL_WH / yy;
                 let verts = (0..4).map(|i| (uvs[i], uv_rots[i])).map(|(uv, uv_rot)| {
                     let p = args.center + uv_rot/stretch_vec;
@@ -272,8 +302,36 @@ impl RenderCommand {
                     Vertex {
                         xyz: vec3(p.x, p.y, args.z),
                         rgba: args.colour,
-                        uv: uv,    // and also this uv would need to be * by args uv
-                        // uv: vec2(0.22, 0.222),
+                        uv: uv,
+                    }
+                });
+                let inds = [0, 1, 2, 0, 2, 3].into_iter();
+                buf.extend(verts, inds);
+            }
+        }
+    }
+    pub fn draw_emission(&self, buf: &mut VertexBufCPU) {
+        match self {
+            Self::Sprite(args) => {
+                if args.colour_emit.w == 0.0 { return; }
+                let h = args.h;
+                let mut wh = h.wh.as_vec2() / ATLAS_WH.as_vec2();
+                wh.x /= args.num_frames as f32;
+                let mut xy = h.xy.as_vec2() / ATLAS_WH.as_vec2();
+                xy.x += args.frame as f32 * wh.x;
+                let yy = vec2(INTERNAL_YRES, INTERNAL_YRES);
+                let mut wh_ndc = 2.0 * h.wh.as_vec2() / yy;
+                wh_ndc.x /= args.num_frames as f32;
+                let uvs = [vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)];
+                let uv_rots = oriented_rect_2d_points(args.radians, wh_ndc, vec2(0.0, 0.0));
+                let stretch_vec = INTERNAL_WH / yy;
+                let verts = (0..4).map(|i| (uvs[i], uv_rots[i])).map(|(uv, uv_rot)| {
+                    let p = args.center + uv_rot/stretch_vec;
+                    let uv = xy + wh * uv;
+                    Vertex {
+                        xyz: vec3(p.x, p.y, args.z),
+                        rgba: args.colour_emit,
+                        uv: uv,
                     }
                 });
                 let inds = [0, 1, 2, 0, 2, 3].into_iter();

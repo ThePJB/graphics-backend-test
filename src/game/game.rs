@@ -25,9 +25,7 @@ impl App for Game {
         }
         self.step(0.016);
         let render_list = self.draw();
-        let mut buf = VertexBufCPU::default();
-        render_list.iter().for_each(|rc| rc.draw(&mut buf));
-        self.rc.frame(buf);
+        self.rc.frame(&render_list);
     }
 }
 

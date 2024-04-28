@@ -4,6 +4,13 @@ use crate::util::*;
 use crate::*;
 use std::path::Path;
 use super::render_context::*;
+use std::collections::HashSet;
+
+pub struct SpriteResource {
+    name: String,
+    albedo: ImageBuffer,
+    emit: Option<ImageBuffer>,
+}
 
 impl RenderContext {
     pub fn load_resources(&mut self, sprites_path: &std::path::Path) {
@@ -22,25 +29,46 @@ impl RenderContext {
         });
         let names = paths.iter().map(|p| path_to_name_fn(p, sprites_path));
         let resources = std::iter::zip(names, img_buffers);
+        let (res_emit, res_albedo): (HashMap<_, _>, HashMap<_, _>) = resources.partition(|res| res.0.ends_with("_emit"));
+        // res_emit.iter().for_each(|(k, v)| {
+        //     v.save(Path::new(k))
+        // });
+        dbg!(&res_emit.keys());
+        let mut keys: Vec<_> = res_albedo.keys().collect();
+        keys.sort();
+        let resources = keys.into_iter().map(|k| SpriteResource {
+            name: k.clone(),
+            albedo: res_albedo[k].clone(),
+            emit: res_emit.get(&(k.clone() + "_emit")).cloned(),
+        });
+        let res_strs: Vec<_> = resources.clone().map(|res| format!("{}, emit? {}", res.name, if res.emit.is_some() { "some" } else { "none" })).collect();
+        dbg!(res_strs);
+
+
+
+        // let names_emit = names.clone().filter(|n| n.ends_with("_emit"));
+        // let names_non_emit = names.filter(|n| !n.ends_with("_emit"));
+        // let resources_emit = std::iter::zip(names_emit, img_buffers);
         self.pack_sprites(resources);
     }
 
     // sets the texture and the resource handles dictionary
-    pub fn pack_sprites(&mut self, resources: impl Iterator<Item = (String, ImageBuffer)>) {
-        let mut resource_tuples: Vec<(String, ImageBuffer)> = resources.collect();
-        resource_tuples.sort_by(|a, b| {
-            let a = a.1.wh.dot(&a.1.wh);
-            let b = b.1.wh.dot(&b.1.wh);
+    pub fn pack_sprites(&mut self, resources: impl Iterator<Item = SpriteResource>) {
+        let mut res: Vec<_> = resources.collect();
+        res.sort_by(|a, b| {
+            let a = a.albedo.wh.dot(&a.albedo.wh);
+            let b = b.albedo.wh.dot(&b.albedo.wh);
             b.cmp(&a)
         });
         // make a packing
         let wh = ATLAS_WH;
         let mut arena = Arena2D::new(wh);
-        resource_tuples.iter().for_each(|rt| {dbg!(&rt.0);});
-        for (name, sprite) in resource_tuples.into_iter() {
-            let r = arena.alloc(sprite.wh);
+        res.iter().for_each(|rt| {dbg!(&rt.name);});
+        for res in res.into_iter() {
+            assert!(res.emit.is_none() || res.emit.unwrap_ref().wh == res.albedo.wh);
+            let r = arena.alloc(res.albedo.wh);
             let h = SpriteHandle { xy: r.xy, wh: r.wh };
-            self.resource_handles.insert(name, h);
+            self.resource_handles.insert(res.name, h);
             //sub buffer 2d on the texture as well!
             unsafe {
                 self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
@@ -53,8 +81,23 @@ impl RenderContext {
                     r.wh.y as i32,
                     glow::RGBA,
                     glow::UNSIGNED_BYTE,
-                    glow::PixelUnpackData::Slice(&sprite.data.as_bytes()),
+                    glow::PixelUnpackData::Slice(&res.albedo.data.as_bytes()),
                 );
+
+                if let Some(emit) = res.emit {
+                    self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_emit));
+                    self.gl.tex_sub_image_2d(
+                        glow::TEXTURE_2D,
+                        0,
+                        r.xy.x,
+                        r.xy.y,
+                        r.wh.x as i32,
+                        r.wh.y as i32,
+                        glow::RGBA,
+                        glow::UNSIGNED_BYTE,
+                        glow::PixelUnpackData::Slice(&emit.data.as_bytes()),
+                    );
+                }
             }
         }
     }

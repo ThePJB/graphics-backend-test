@@ -4,6 +4,7 @@ use std::io::BufWriter;
 use std::f32::consts::PI;
 use super::*;
 
+#[derive(Clone)]
 pub struct ImageBuffer {
     pub wh: IVec2,
     pub data: Vec<u8>,
