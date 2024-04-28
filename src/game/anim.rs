@@ -10,7 +10,6 @@ pub type AnimDef = (
     bool,   // looping
 );
 
-
 // single anim ie of 1 sprite
 #[derive(Clone, Debug, Copy)]
 pub struct Anim {
@@ -28,9 +27,10 @@ pub struct Layer {
     curr_frame: usize,
     t_last_update: f32,
     colour: Vec4,
+    colour_emit: Vec4,
 }
 impl Layer {
-    pub fn new(colour: Vec4, z: f32, anims: impl Iterator<Item = AnimDef>) -> Self {
+    pub fn new_no_emit(colour: Vec4, z: f32, anims: impl Iterator<Item = AnimDef>) -> Self {
         let mut layer = Layer {
             anims: HashMap::from_iter(anims.map(|(key, h, width, looping)| (key.to_owned(), Anim { h, n: width as _, looping: false }))),
             curr_anim: "".to_owned(),
@@ -38,6 +38,20 @@ impl Layer {
             curr_frame: 0,
             t_last_update: 0.0,
             colour,
+            colour_emit: vec4(0.0, 0.0, 0.0, 0.0),
+        };
+        layer.select_idle_anim(&HashSet::new());
+        layer
+    }
+    pub fn new(colour: Vec4, colour_emit: Vec4, z: f32, anims: impl Iterator<Item = AnimDef>) -> Self {
+        let mut layer = Layer {
+            anims: HashMap::from_iter(anims.map(|(key, h, width, looping)| (key.to_owned(), Anim { h, n: width as _, looping: false }))),
+            curr_anim: "".to_owned(),
+            z,
+            curr_frame: 0,
+            t_last_update: 0.0,
+            colour,
+            colour_emit,
         };
         layer.select_idle_anim(&HashSet::new());
         layer
@@ -57,7 +71,8 @@ impl Layer {
             h: curr_anim.h, 
             frame: self.curr_frame as _, 
             num_frames: curr_anim.n as _,
-            c: self.colour,
+            colour: self.colour,
+            colour_emit: self.colour_emit,
          }
     }
     fn update(&mut self, t: f32, keys: &HashSet<String>) {
@@ -143,7 +158,7 @@ impl EntityAppearance {
 pub fn necromancer_appearance(res: &HashMap<String, SpriteHandle>) -> EntityAppearance {
     let mut layers = vec![];
     layers.push(
-        Layer::new(
+        Layer::new_no_emit(
         vec4(1.0, 0.0, 0.0, 1.0),
             -0.1,
             [
@@ -152,7 +167,7 @@ pub fn necromancer_appearance(res: &HashMap<String, SpriteHandle>) -> EntityAppe
             ].into_iter(),
     ));
     layers.push(
-        Layer::new(
+        Layer::new_no_emit(
         vec4(1.0, 0.0, 0.0, 1.0),
             -0.2,
             [
@@ -163,6 +178,7 @@ pub fn necromancer_appearance(res: &HashMap<String, SpriteHandle>) -> EntityAppe
     layers.push(
         Layer::new(
         vec4(1.0, 0.0, 0.0, 1.0),
+        vec4(0.0, 1.0, 1.0, 1.0) * 20.0,
             -0.3,
             [
                 ("walk", res["guy/head/walk"], 6, true),
@@ -174,7 +190,7 @@ pub fn necromancer_appearance(res: &HashMap<String, SpriteHandle>) -> EntityAppe
 
 #[test]
 fn test_draw() {
-    let layer = Layer::new(vec4(0.5, 1.0, 0.0, 1.0), 0.0, [("idle", SpriteHandle{xy: ivec2(0, 0), wh: ATLAS_WH}, 10, true)].into_iter());
+    let layer = Layer::new_no_emit(vec4(0.5, 1.0, 0.0, 1.0), 0.0, [("idle", SpriteHandle{xy: ivec2(0, 0), wh: ATLAS_WH}, 10, true)].into_iter());
     let mut appearance = EntityAppearance::new(vec![layer]);
     appearance.add_key("idle".to_owned());
     dbg!(&appearance);

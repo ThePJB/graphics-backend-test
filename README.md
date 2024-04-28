@@ -66,3 +66,13 @@ i reckon we downsample lighting and stuff a fair bit and maybe marching squares 
  hopefully fixing the scaling issue
 
 stretching needs to happen after rotation and shit
+
+
+honestly could maybe get correct scalings by fixing y and allowing x to shift now?
+do i need render to texture maybe i dont lol
+
+but yeh its pretty good what next, able to migrate to spellslinger lol?
+or add HDR / emission
+
+maybe we merge then add hdr etc
+would hdr etc need stuff to change or no? maybe we do hdr first

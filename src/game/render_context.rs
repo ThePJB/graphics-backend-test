@@ -216,7 +216,8 @@ pub struct SpriteArgs {
     pub center: Vec2,
     pub radians: f32,
     pub z: f32,
-    pub c: Vec4,
+    pub colour: Vec4,
+    pub colour_emit: Vec4,
     pub h: SpriteHandle,
     pub frame: u8,
     pub num_frames: u8,
@@ -270,7 +271,7 @@ impl RenderCommand {
                     let uv = xy + wh * uv;
                     Vertex {
                         xyz: vec3(p.x, p.y, args.z),
-                        rgba: args.c,
+                        rgba: args.colour,
                         uv: uv,    // and also this uv would need to be * by args uv
                         // uv: vec2(0.22, 0.222),
                     }
