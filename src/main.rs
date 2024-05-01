@@ -38,3 +38,18 @@ Where Game {
 
 // the idea of like make it 1 function is cute
 // frame(input, &gl, &mut audio context thing?) or -> Vec<AudioCommand>
+
+
+
+
+// test minecraft light!!!
+// on image
+// how many ms to do a frame
+// 2d 1d convolution decomposition
+// but also u kinda only want to do it from the lit sources yeah
+// can u do u64 shit lol
+
+// otherwise what jump flooding raymarched occlusion test?
+// kinda want the sdf / raymarching ability for ai to player check
+// what about the occlusion of players vision and fog of war?
+// youve got like the tiles grid

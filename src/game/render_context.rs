@@ -2,23 +2,67 @@ use glow::*;
 use std::{collections::HashMap, f32::consts::PI};
 use crate::util::ImageBuffer;
 
-pub const ATLAS_WH: IVec2 = ivec2(1024, 1024);
 
-pub const FRAG: &str = r#"#version 330 core
+// Texture 0: Atlas Albedo
+// Texture 1: Atlas Emission
+// Texture 2: Light map
+
+pub const ATLAS_WH: IVec2 = ivec2(1024, 1024);
+// pub const LIGHT_WH: IVec2 = INTERNAL_WH_I/4;
+pub const LIGHT_WH: IVec2 = ivec2(INTERNAL_WH_I.x/4, INTERNAL_WH_I.y/4);
+pub const FRAG_ALBEDO: &str = r#"#version 330 core
+in vec4 col;
+in vec2 uv;
+in vec4 gl_FragCoord;
+out vec4 frag_colour;
+
+uniform vec2 res;
+uniform sampler2D tex;
+uniform sampler2D light;
+
+void main() {
+    vec2 screen_uv = gl_FragCoord.xy / res;
+    vec4 light_col = texture(light, screen_uv);
+    // frag_colour = light_col;
+    frag_colour = texture(tex, uv) * col * light_col;
+    // frag_colour = col;
+}
+"#;
+
+pub const VERT_ALBEDO: &str = r#"#version 330 core
+layout (location = 0) in vec3 in_pos;
+layout (location = 1) in vec4 in_col;
+layout (location = 2) in vec2 in_uv;
+
+out vec4 col;
+out vec2 uv;
+
+// uniform mat4 projection;
+const mat4 projection = mat4(1.0);
+
+
+void main() {
+    col = in_col;
+    uv = in_uv;
+    gl_Position = projection * vec4(in_pos, 1.0);
+}
+"#;
+
+pub const FRAG_EMIT: &str = r#"#version 330 core
 in vec4 col;
 in vec2 uv;
 out vec4 frag_colour;
 
 uniform sampler2D tex;
 
-
 void main() {
+    // frag_colour = vec4(1.0, 0.0, 0.0, 1.0);
     frag_colour = texture(tex, uv) * col;
     // frag_colour = col;
 }
 "#;
 
-pub const VERT: &str = r#"#version 330 core
+pub const VERT_EMIT: &str = r#"#version 330 core
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec4 in_col;
 layout (location = 2) in vec2 in_uv;
@@ -43,14 +87,17 @@ void main() {
 
 pub struct RenderContext {
     pub gl: Context,
-    pub program: NativeProgram,
+    pub program_emit: NativeProgram,
+    pub program_albedo: NativeProgram,
     pub vao: VertexArray,
     pub vbo: Buffer,
     pub ebo: Buffer,
     pub texture: Texture,
     pub texture_emit: Texture,
-    pub num_verts: usize,
+    pub light_texture: Texture,
+    pub light_fbo: Framebuffer,
     pub resource_handles: HashMap<String, SpriteHandle>,
+    pub wh: IVec2,
 }
 
 impl RenderContext {
@@ -81,33 +128,70 @@ impl RenderContext {
             // self.atlas = Some(Atlas::new(gl));
             // self.res = Some(Resources::new(&mut self.atlas.unwrap_mut(), gl));
 
-            let program = gl.create_program().expect("Cannot create program");
+            // albedo 
+            let program_albedo = {
+                let program_albedo = gl.create_program().expect("Cannot create program");
+            
+                let vs = gl.create_shader(glow::VERTEX_SHADER).expect("cannot create vertex shader");
+                gl.shader_source(vs, VERT_ALBEDO);
+                gl.compile_shader(vs);
+                if !gl.get_shader_compile_status(vs) {
+                    panic!("{}", gl.get_shader_info_log(vs));
+                }
+                gl.attach_shader(program_albedo, vs);
         
-            let vs = gl.create_shader(glow::VERTEX_SHADER).expect("cannot create vertex shader");
-            gl.shader_source(vs, VERT);
-            gl.compile_shader(vs);
-            if !gl.get_shader_compile_status(vs) {
-                panic!("{}", gl.get_shader_info_log(vs));
-            }
-            gl.attach_shader(program, vs);
-    
-            let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("cannot create fragment shader");
-            gl.shader_source(fs, FRAG);
-            gl.compile_shader(fs);
-            if !gl.get_shader_compile_status(fs) {
-                panic!("{}", gl.get_shader_info_log(fs));
-            }
-            gl.attach_shader(program, fs);
-    
-            gl.link_program(program);
-            if !gl.get_program_link_status(program) {
-                panic!("{}", gl.get_program_info_log(program));
-            }
-            gl.detach_shader(program, fs);
-            gl.delete_shader(fs);
-            gl.detach_shader(program, vs);
-            gl.delete_shader(vs);
+                let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("cannot create fragment shader");
+                gl.shader_source(fs, FRAG_ALBEDO);
+                gl.compile_shader(fs);
+                if !gl.get_shader_compile_status(fs) {
+                    panic!("{}", gl.get_shader_info_log(fs));
+                }
+                gl.attach_shader(program_albedo, fs);
+        
+                gl.link_program(program_albedo);
+                if !gl.get_program_link_status(program_albedo) {
+                    panic!("{}", gl.get_program_info_log(program_albedo));
+                }
+                gl.detach_shader(program_albedo, fs);
+                gl.delete_shader(fs);
+                gl.detach_shader(program_albedo, vs);
+                gl.delete_shader(vs);
+                program_albedo
+            };
 
+            // emission
+            let program_emit = {
+                let program_emit = gl.create_program().expect("Cannot create program");
+            
+                let vs = gl.create_shader(glow::VERTEX_SHADER).expect("cannot create vertex shader");
+                gl.shader_source(vs, VERT_EMIT);
+                gl.compile_shader(vs);
+                if !gl.get_shader_compile_status(vs) {
+                    panic!("{}", gl.get_shader_info_log(vs));
+                }
+                gl.attach_shader(program_emit, vs);
+        
+                let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("cannot create fragment shader");
+                gl.shader_source(fs, FRAG_EMIT);
+                gl.compile_shader(fs);
+                if !gl.get_shader_compile_status(fs) {
+                    panic!("{}", gl.get_shader_info_log(fs));
+                }
+                gl.attach_shader(program_emit, fs);
+        
+                gl.link_program(program_emit);
+                if !gl.get_program_link_status(program_emit) {
+                    panic!("{}", gl.get_program_info_log(program_emit));
+                }
+                gl.detach_shader(program_emit, fs);
+                gl.delete_shader(fs);
+                gl.detach_shader(program_emit, vs);
+                gl.delete_shader(vs);
+                program_emit
+            };
+
+
+            gl.active_texture(glow::TEXTURE0);
             let mut im = ImageBuffer::new(ATLAS_WH);
             im.fill(vec4(1.0, 0.0, 1.0, 1.0));
             let texture = gl.create_texture().unwrap();
@@ -129,6 +213,7 @@ impl RenderContext {
 
             gl.generate_mipmap(glow::TEXTURE_2D);
 
+            gl.active_texture(glow::TEXTURE1);
             let mut im = ImageBuffer::new(ATLAS_WH);
             im.fill(vec4(1.0, 0.0, 1.0, 0.0));
             let texture_emit = gl.create_texture().unwrap();
@@ -149,17 +234,59 @@ impl RenderContext {
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
 
             gl.generate_mipmap(glow::TEXTURE_2D);
+            
+            // Create the light texture
+            gl.active_texture(glow::TEXTURE2);
+            let mut im = ImageBuffer::new(LIGHT_WH);
+            im.fill(vec4(1.0, 0.0, 1.0, 0.0));
+            let light_texture = gl.create_texture().unwrap();
+            gl.bind_texture(glow::TEXTURE_2D, Some(light_texture));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                im.wh.x as i32,
+                im.wh.y as i32,
+                0,
+                RGBA,
+                glow::UNSIGNED_BYTE,
+                Some(&im.data),
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+            gl.generate_mipmap(glow::TEXTURE_2D);
+
+            // Create the framebuffer for rendering to the light texture
+            let light_fbo = gl.create_framebuffer().expect("Cannot create framebuffer");
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(light_fbo));
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                Some(light_texture),
+                0,
+            );
+            let status = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+            if status != glow::FRAMEBUFFER_COMPLETE {
+                panic!("Framebuffer incomplete: {:?}", status);
+            }
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 
             RenderContext {
                 gl,
-                program,
+                program_emit,
+                program_albedo,
                 vao,
                 vbo,
                 ebo,
                 texture,
                 texture_emit,
-                num_verts: 0,
                 resource_handles: HashMap::new(),
+                light_texture,
+                light_fbo,
+                wh: INTERNAL_WH_I,
             }
         }
     }
@@ -168,45 +295,70 @@ impl RenderContext {
         unsafe {
             self.gl.clear_color(0.5, 0.5, 0.5, 1.0);
             self.gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT); 
-            self.gl.use_program(Some(self.program));
+            
+            self.emission(render_list);
+            self.gl.clear(glow::DEPTH_BUFFER_BIT);
+            self.albedo(render_list);
         }
-        self.albedo(render_list);
-        self.emission(render_list);
     }
 
+    // passes: program, inputs, outputs, etc
     pub fn albedo(&mut self, render_list: &Vec<RenderCommand>) {
         let mut buf = VertexBufCPU::default();
         render_list.iter().for_each(|rc| rc.draw_albedo(&mut buf));
         unsafe {
+            self.gl.use_program(Some(self.program_albedo));
+            // so lol technically u dont have to do this but maybe u do
+            self.gl.active_texture(glow::TEXTURE0);
             self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            self.gl.active_texture(glow::TEXTURE2);
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(self.light_texture));
+            self.gl.uniform_1_i32(self.gl.get_uniform_location(self.program_albedo, "tex").as_ref(), 0);
+            self.gl.uniform_1_i32(self.gl.get_uniform_location(self.program_albedo, "light").as_ref(), 2);
+            self.gl.uniform_2_f32(self.gl.get_uniform_location(self.program_albedo, "res").as_ref(), self.wh.x as f32, self.wh.y as f32);
+            self.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+            self.gl.viewport(0, 0, self.wh.x, self.wh.y);
+            // self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
             self.gl.bind_vertex_array(Some(self.vao));
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
             self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.ebo));
-            self.num_verts = buf.inds.len();
+            let num_verts = buf.inds.len();
             self.gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, buf.verts.as_bytes(), glow::STATIC_DRAW);
             self.gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, buf.inds.as_bytes(), glow::STATIC_DRAW);
             self.gl.draw_elements(
                 glow::TRIANGLES,
-                self.num_verts as i32,       // number of indices
+                num_verts as i32,       // number of indices
                 glow::UNSIGNED_INT,   // type of indices
                 0                           // offset
             );
         }
     }
+
     pub fn emission(&mut self, render_list: &Vec<RenderCommand>) {
         let mut buf = VertexBufCPU::default();
         render_list.iter().for_each(|rc| rc.draw_emission(&mut buf));
         unsafe {
+            self.gl.use_program(Some(self.program_emit));
+            self.gl.active_texture(glow::TEXTURE1);
             self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_emit));
+            self.gl.uniform_1_i32(self.gl.get_uniform_location(self.program_emit, "tex").as_ref(), 1);
+            self.gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.light_fbo));
+            self.gl.viewport(0, 0, LIGHT_WH.x, LIGHT_WH.y);
+            // Clear the framebuffer
+            self.gl.clear_color(0.0, 1.0, 0.0, 1.0); // Clear with black color
+            self.gl.clear(glow::COLOR_BUFFER_BIT); // dont think depth needed
+
+            // this shit did show up before, the glowy rune from the hat, showed in rdoc texture
+
             self.gl.bind_vertex_array(Some(self.vao));
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
             self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.ebo));
-            self.num_verts = buf.inds.len();
+            let num_verts = buf.inds.len();
             self.gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, buf.verts.as_bytes(), glow::STATIC_DRAW);
             self.gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, buf.inds.as_bytes(), glow::STATIC_DRAW);
             self.gl.draw_elements(
                 glow::TRIANGLES,
-                self.num_verts as i32,       // number of indices
+                num_verts as i32,       // number of indices
                 glow::UNSIGNED_INT,   // type of indices
                 0                           // offset
             );
@@ -214,6 +366,7 @@ impl RenderContext {
     }
 
     pub fn resize(&mut self, wh: IVec2) {
+        self.wh = wh;
         unsafe {
             self.gl.viewport(0, 0, wh.x, wh.y);
         }

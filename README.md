@@ -87,3 +87,8 @@ its also prob a lot less tho so i could remake it.
 // so we actually do emission first, then we would render it to a texture like the emission map, and also need sky light, and then render the albedo with * light map sort of thing
 // would we init light map with sky lights maybe?
 // is it gonna look shit do we also do a pass at full res of emission_detail or something
+
+
+now it just needs bloom pass and tone mapping
+
+cheap gaussian with that dual fuckin filter downsample thing or what

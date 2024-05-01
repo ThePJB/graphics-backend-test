@@ -177,7 +177,7 @@ pub fn necromancer_appearance(res: &HashMap<String, SpriteHandle>) -> EntityAppe
     ));
     layers.push(
         Layer::new(
-        vec4(1.0, 0.0, 0.0, 1.0),
+        vec4(1.0, 0.5, 0.5, 1.0),
         vec4(0.0, 1.0, 1.0, 1.0) * 20.0,
             -0.3,
             [
