@@ -1,6 +1,7 @@
 
 mod util;
 mod game;
+mod test_minecraft_lights;
 use crate::game::*;
 
 // well it looks like main is doing the switchy switchy not run, this is ok

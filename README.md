@@ -92,3 +92,7 @@ its also prob a lot less tho so i could remake it.
 now it just needs bloom pass and tone mapping
 
 cheap gaussian with that dual fuckin filter downsample thing or what
+
+
+
+seems also black on laptop not sure y

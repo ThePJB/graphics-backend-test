@@ -1,3 +1,4 @@
+use glow::Texture as GPUTexture;
 use glow::*;
 use std::{collections::HashMap, f32::consts::PI};
 use crate::util::ImageBuffer;
@@ -92,9 +93,9 @@ pub struct RenderContext {
     pub vao: VertexArray,
     pub vbo: Buffer,
     pub ebo: Buffer,
-    pub texture: Texture,
-    pub texture_emit: Texture,
-    pub light_texture: Texture,
+    pub texture: GPUTexture,
+    pub texture_emit: GPUTexture,
+    pub light_texture: GPUTexture,
     pub light_fbo: Framebuffer,
     pub resource_handles: HashMap<String, SpriteHandle>,
     pub wh: IVec2,
